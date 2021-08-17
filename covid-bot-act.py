@@ -135,7 +135,7 @@ def do_update():
             #telegram_updater.bot.send_message(int(user), message)
 
     for row in close_data:
-        if INCLUDE_HISTORIC or row['Status'] != "":
+        if INCLUDE_HISTORIC or row['status'] != "":
             row_hash = hash_row(row, HASH_FIELDS)
             if redis.sismember(R_CLOSE_SITE_LIST, row_hash):
                 pass
@@ -144,7 +144,7 @@ def do_update():
                 redis.sadd(R_CLOSE_SITE_LIST, row_hash)
 
     for row in casual_data:
-        if INCLUDE_HISTORIC or row['Status'] != "":
+        if INCLUDE_HISTORIC or row['status'] != "":
             row_hash = hash_row(row, HASH_FIELDS)
             if redis.sismember(R_CASUAL_SITE_LIST, row_hash):
                 pass
@@ -153,7 +153,7 @@ def do_update():
                 redis.sadd(R_CASUAL_SITE_LIST, row_hash)
 
     for row in monitor_data:
-        if INCLUDE_HISTORIC or row['Status'] != "":
+        if INCLUDE_HISTORIC or row['status'] != "":
             row_hash = hash_row(row, HASH_FIELDS)
             if redis.sismember(R_MONITOR_SITE_LIST, row_hash):
                 pass
