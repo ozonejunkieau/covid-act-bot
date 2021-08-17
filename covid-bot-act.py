@@ -1,6 +1,6 @@
 import time
 from bs4 import BeautifulSoup
-import urllib.request
+import urllib.request, urllib.error
 from hashlib import sha256
 from redis import StrictRedis
 import tweepy
@@ -8,7 +8,7 @@ from telegram.ext import Updater, CommandHandler
 
 from conf import REDIS_HOST, REDIS_DB, REDIS_PORT, TELEGRAM_API_TOKEN
 
-UPDATE_TIMER_SECS = 300 
+UPDATE_TIMER_SECS = 900 # 15 minutes
 
 INCLUDE_HISTORIC = False # This flag removes events that are not either New or Updated. Useful for reducing noise if a large table change is made.
 
@@ -47,7 +47,7 @@ start_handler = CommandHandler('start', start)
 telegram_dispatcher.add_handler(start_handler)
 
 def last_update(update, context):
-    previous_time = redis.get(R_UPDATE_TIME)
+    previous_time = redis.get(R_UPDATE_TIME).decode()
     context.bot.send_message(chat_id=update.effective_chat.id, text=f"Last Updated: {previous_time}")
 last_update_handler = CommandHandler('last_updated', last_update)
 telegram_dispatcher.add_handler(last_update_handler)
@@ -99,8 +99,12 @@ def hash_row(row_dict, fields):
 def do_update():
     print("Update started...")
 
-    with urllib.request.urlopen(URL) as response:
-        raw_html = response.read()
+    try:
+        with urllib.request.urlopen(URL, timeout=10) as response:
+            raw_html = response.read()
+    except urllib.error.URLError as e:
+            print(f"Error: {e}")
+            return
 
     soup = BeautifulSoup(raw_html, features="html.parser")
 
@@ -132,7 +136,7 @@ def do_update():
 
         for user in all_users:
             print(user, message)
-            #telegram_updater.bot.send_message(int(user), message)
+            telegram_updater.bot.send_message(int(user), message)
 
     for row in close_data:
         if INCLUDE_HISTORIC or row['status'] != "":
