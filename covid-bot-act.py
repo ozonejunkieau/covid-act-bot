@@ -98,9 +98,12 @@ def do_update():
 
 
     previous_time = redis.get(R_UPDATE_TIME)
-    print(previous_time, update_time)
-    if previous_time == update_time:
-        print("Done")
+    if previous_time is not None:
+        print(previous_time, update_time)
+
+        if previous_time == update_time:
+            print("No update required at this time.")
+            return
 
 
     close_table_html = soup.find("table", { "id" : CLOSE_TABLE_ID })
