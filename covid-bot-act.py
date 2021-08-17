@@ -99,9 +99,9 @@ def do_update():
 
     previous_time = redis.get(R_UPDATE_TIME)
     if previous_time is not None:
-        print(previous_time, update_time)
+        print(previous_time.decode(), update_time)
 
-        if previous_time == update_time:
+        if previous_time.decode() == update_time:
             print("No update required at this time.")
             return
 
