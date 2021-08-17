@@ -10,6 +10,8 @@ from conf import REDIS_HOST, REDIS_DB, REDIS_PORT, TELEGRAM_API_TOKEN
 
 UPDATE_TIMER_SECS = 300 
 
+INCLUDE_HISTORIC = False # This flag removes events that are not either New or Updated. Useful for reducing noise if a large table change is made.
+
 # Some useful constants
 R_TELEGRAM_USER_LIST = "ACTCOVID:USERS"
 R_MONITOR_SITE_LIST = "ACTCOVID:MONITOR"
@@ -43,6 +45,12 @@ def start(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Thanks! Please note this information is provided on a best effort basis!")
 start_handler = CommandHandler('start', start)
 telegram_dispatcher.add_handler(start_handler)
+
+def last_update(update, context):
+    previous_time = redis.get(R_UPDATE_TIME)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=f"Last Updated: {previous_time}")
+last_update_handler = CommandHandler('last_updated', last_update)
+telegram_dispatcher.add_handler(last_update_handler)
 
 def stop(update, context):
     # Remove user from our list.
@@ -84,7 +92,7 @@ def get_all_rows(in_soup):
     return all_data
 
 def hash_row(row_dict, fields):
-    hash_str = "".join([row_dict.get(k) for k in fields])
+    hash_str = "".join([row_dict.get(k).replace(",", "").replace("\n", "").upper().replace("(", "").replace(")", "") for k in fields])
     hash = sha256(hash_str.encode()).hexdigest()
     return hash
 
@@ -127,28 +135,31 @@ def do_update():
             #telegram_updater.bot.send_message(int(user), message)
 
     for row in close_data:
-        row_hash = hash_row(row, HASH_FIELDS)
-        if redis.sismember(R_CLOSE_SITE_LIST, row_hash):
-            pass
-        else:
-            send_to_members(build_message(row, EXPOSURE_CLOSE))
-            redis.sadd(R_CLOSE_SITE_LIST, row_hash)
+        if INCLUDE_HISTORIC or row['Status'] != "":
+            row_hash = hash_row(row, HASH_FIELDS)
+            if redis.sismember(R_CLOSE_SITE_LIST, row_hash):
+                pass
+            else:
+                send_to_members(build_message(row, EXPOSURE_CLOSE))
+                redis.sadd(R_CLOSE_SITE_LIST, row_hash)
 
     for row in casual_data:
-        row_hash = hash_row(row, HASH_FIELDS)
-        if redis.sismember(R_CASUAL_SITE_LIST, row_hash):
-            pass
-        else:
-            send_to_members(build_message(row, EXPOSURE_CASUAL))
-            redis.sadd(R_CASUAL_SITE_LIST, row_hash)
+        if INCLUDE_HISTORIC or row['Status'] != "":
+            row_hash = hash_row(row, HASH_FIELDS)
+            if redis.sismember(R_CASUAL_SITE_LIST, row_hash):
+                pass
+            else:
+                send_to_members(build_message(row, EXPOSURE_CASUAL))
+                redis.sadd(R_CASUAL_SITE_LIST, row_hash)
 
     for row in monitor_data:
-        row_hash = hash_row(row, HASH_FIELDS)
-        if redis.sismember(R_MONITOR_SITE_LIST, row_hash):
-            pass
-        else:
-            send_to_members(build_message(row, EXPOSURE_MONITOR))
-            redis.sadd(R_MONITOR_SITE_LIST, row_hash)
+        if INCLUDE_HISTORIC or row['Status'] != "":
+            row_hash = hash_row(row, HASH_FIELDS)
+            if redis.sismember(R_MONITOR_SITE_LIST, row_hash):
+                pass
+            else:
+                send_to_members(build_message(row, EXPOSURE_MONITOR))
+                redis.sadd(R_MONITOR_SITE_LIST, row_hash)
 
     # Mark this update as done.
     redis.set(R_UPDATE_TIME, update_time)
