@@ -1,3 +1,4 @@
+import time
 from bs4 import BeautifulSoup
 import urllib.request
 from hashlib import sha256
@@ -6,6 +7,8 @@ import tweepy
 from telegram.ext import Updater, CommandHandler
 
 from conf import REDIS_HOST, REDIS_DB, REDIS_PORT, TELEGRAM_API_TOKEN
+
+UPDATE_TIMER_SECS = 300 
 
 # Some useful constants
 R_TELEGRAM_USER_LIST = "ACTCOVID:USERS"
@@ -86,6 +89,8 @@ def hash_row(row_dict, fields):
     return hash
 
 def do_update():
+    print("Update started...")
+
     with urllib.request.urlopen(URL) as response:
         raw_html = response.read()
 
@@ -147,9 +152,18 @@ def do_update():
 
     # Mark this update as done.
     redis.set(R_UPDATE_TIME, update_time)
+    print("Update Done")
 
 telegram_updater.start_polling()
 
-do_update()
+last_update = 0
 
-print("Done")
+while True:
+    now = time.time()
+    if now - last_update > UPDATE_TIMER_SECS:
+        do_update()
+        last_update = now
+    else:
+        time.sleep(10)
+
+print("Exited")
